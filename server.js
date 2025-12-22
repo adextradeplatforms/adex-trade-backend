@@ -28,7 +28,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "https://YOUR-NETLIFY-SITE.netlify.app"
+      "https://adextradeplatformtest.netlify.app"
     ],
     credentials: true,
   })
