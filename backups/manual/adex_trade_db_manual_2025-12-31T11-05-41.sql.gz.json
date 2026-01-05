@@ -1,0 +1,12 @@
+{
+  "filename": "adex_trade_db_manual_2025-12-31T11-05-41.sql.gz",
+  "type": "manual",
+  "description": "Optional description here",
+  "created": "2025-12-31T11:05:42.851Z",
+  "size": 298,
+  "sizeFormatted": "298 Bytes",
+  "compressed": true,
+  "originalSize": 518,
+  "database": "adex_trade_db",
+  "path": "/data/data/com.termux/files/home/adex-trade/backend/backups/manual/adex_trade_db_manual_2025-12-31T11-05-41.sql.gz"
+}

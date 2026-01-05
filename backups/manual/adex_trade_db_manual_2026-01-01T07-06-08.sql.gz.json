@@ -1,0 +1,11 @@
+{
+  "filename": "adex_trade_db_manual_2026-01-01T07-06-08.sql.gz",
+  "type": "manual",
+  "description": "Manual CLI backup",
+  "created": "2026-01-01T07:07:11.437Z",
+  "size": 33164,
+  "sizeFormatted": "32.39 KB",
+  "compressed": true,
+  "database": "postgres",
+  "path": "/data/data/com.termux/files/home/adex-trade/backend/backups/manual/adex_trade_db_manual_2026-01-01T07-06-08.sql.gz"
+}
