@@ -4,13 +4,16 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import 'dotenv/config';
+
 import logger from './config/logger.js';
 import requestLogger from './middleware/requestLogger.js';
-import i18next from './config/i18n.js';
+
+import i18next, { initI18n } from './config/i18n.js';
 import i18nextMiddleware from 'i18next-http-middleware';
+
 import errorHandler from './middleware/errorHandler.js';
 import languageRoutes from './routes/languageRoutes.js';
-import { authenticateToken } from './middleware/authMiddleware.js'; // ✅ named import
+import { authenticateToken } from './middleware/authMiddleware.js';
 import setUserLanguage from './middleware/languageMiddleware.js';
 
 // ===================== ROUTES =====================
@@ -20,10 +23,13 @@ import investmentRoutes from './routes/investmentRoutes.js';
 import referralRoutes from './routes/referralRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import passwordRoutes from './routes/passwordRoutes.js';
-import twoFactorRoutes from './routes/twoFactorRoutes.js'; 
+import twoFactorRoutes from './routes/twoFactorRoutes.js';
 import backupRoutes from './routes/backupRoutes.js';
 
 const app = express();
+
+// 🔥 VERY IMPORTANT — INIT I18N BEFORE ANY REQUEST
+await initI18n();
 
 // ===================== SECURITY MIDDLEWARE =====================
 app.use(helmet());
@@ -37,9 +43,8 @@ app.use(requestLogger);
 
 // ===================== RATE LIMITING =====================
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 100,
-  message: 'Too many requests from this IP, please try again later.',
 });
 app.use('/api/', limiter);
 
@@ -70,23 +75,20 @@ app.use('/api/2fa', twoFactorRoutes);
 app.use('/api/backups', backupRoutes);
 app.use('/api/languages', languageRoutes);
 
-// ===================== APPLY LANGUAGE & AUTH MIDDLEWARE =====================
-// Apply to all routes that have Authorization header
+// ===================== AUTH + LANGUAGE =====================
 app.use(async (req, res, next) => {
-  if (req.headers.authorization) {
-    try {
-      await authenticateToken(req, res, async () => {
-        await setUserLanguage(req, res, next);
-      });
-    } catch (err) {
-      next(); // ignore auth errors for language middleware
-    }
-  } else {
+  if (!req.headers.authorization) return next();
+
+  try {
+    await authenticateToken(req, res, async () => {
+      await setUserLanguage(req, res, next);
+    });
+  } catch {
     next();
   }
 });
 
-// ===================== 404 HANDLER =====================
+// ===================== 404 =====================
 app.use((req, res) => {
   res.status(404).json({
     success: false,
