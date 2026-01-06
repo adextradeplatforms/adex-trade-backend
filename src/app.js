@@ -28,10 +28,10 @@ import backupRoutes from './routes/backupRoutes.js';
 
 const app = express();
 
-// 🔥 VERY IMPORTANT — INIT I18N BEFORE ANY REQUEST
+// 🔥 INIT I18N
 await initI18n();
 
-// ===================== SECURITY MIDDLEWARE =====================
+// ===================== SECURITY =====================
 app.use(helmet());
 app.use(
   cors({
@@ -41,21 +41,29 @@ app.use(
 );
 app.use(requestLogger);
 
-// ===================== RATE LIMITING =====================
+// ===================== RATE LIMIT =====================
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
 });
 app.use('/api/', limiter);
 
-// ===================== BODY PARSER =====================
+// ===================== BODY =====================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ===================== I18N MIDDLEWARE =====================
+// ===================== I18N =====================
 app.use(i18nextMiddleware.handle(i18next));
 
-// ===================== HEALTH CHECK =====================
+// ===================== ROOT =====================
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Welcome to ADEX Trade API',
+  });
+});
+
+// ===================== HEALTH =====================
 app.get('/health', (req, res) => {
   res.json({
     success: true,
@@ -64,29 +72,18 @@ app.get('/health', (req, res) => {
   });
 });
 
-// ===================== API ROUTES =====================
+// ===================== PUBLIC ROUTES =====================
 app.use('/api/auth', authRoutes);
-app.use('/api/wallet', walletRoutes);
-app.use('/api/investments', investmentRoutes);
-app.use('/api/referrals', referralRoutes);
-app.use('/api/admin', adminRoutes);
 app.use('/api/password', passwordRoutes);
 app.use('/api/2fa', twoFactorRoutes);
-app.use('/api/backups', backupRoutes);
 app.use('/api/languages', languageRoutes);
 
-// ===================== AUTH + LANGUAGE =====================
-app.use(async (req, res, next) => {
-  if (!req.headers.authorization) return next();
-
-  try {
-    await authenticateToken(req, res, async () => {
-      await setUserLanguage(req, res, next);
-    });
-  } catch {
-    next();
-  }
-});
+// ===================== PROTECTED ROUTES =====================
+app.use('/api/wallet', authenticateToken, setUserLanguage, walletRoutes);
+app.use('/api/investments', authenticateToken, setUserLanguage, investmentRoutes);
+app.use('/api/referrals', authenticateToken, setUserLanguage, referralRoutes);
+app.use('/api/admin', authenticateToken, setUserLanguage, adminRoutes);
+app.use('/api/backups', authenticateToken, setUserLanguage, backupRoutes);
 
 // ===================== 404 =====================
 app.use((req, res) => {
@@ -96,7 +93,7 @@ app.use((req, res) => {
   });
 });
 
-// ===================== ERROR HANDLER =====================
+// ===================== ERROR =====================
 app.use(errorHandler);
 
 export default app;
