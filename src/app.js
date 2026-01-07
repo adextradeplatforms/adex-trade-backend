@@ -5,18 +5,18 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import 'dotenv/config';
 
+// Middleware
 import logger from './config/logger.js';
 import requestLogger from './middleware/requestLogger.js';
-
-import i18next, { initI18n } from './config/i18n.js';
-import i18nextMiddleware from 'i18next-http-middleware';
-
 import errorHandler from './middleware/errorHandler.js';
-import languageRoutes from './routes/languageRoutes.js';
 import { authenticateToken } from './middleware/authMiddleware.js';
 import setUserLanguage from './middleware/languageMiddleware.js';
 
-// ===================== ROUTES =====================
+// i18n
+import i18next, { initI18n } from './config/i18n.js';
+import i18nextMiddleware from 'i18next-http-middleware';
+
+// Routes
 import authRoutes from './routes/authRoutes.js';
 import walletRoutes from './routes/walletRoutes.js';
 import investmentRoutes from './routes/investmentRoutes.js';
@@ -35,7 +35,7 @@ await initI18n();
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || 'https://adextradeplatform.netlify.app/',
+    origin: process.env.FRONTEND_URL || 'https://adextradeplatform.netlify.app', // no slash
     credentials: true,
   })
 );
@@ -76,7 +76,6 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/password', passwordRoutes);
 app.use('/api/2fa', twoFactorRoutes);
-app.use('/api/languages', languageRoutes);
 
 // ===================== PROTECTED ROUTES =====================
 app.use('/api/wallet', authenticateToken, setUserLanguage, walletRoutes);
