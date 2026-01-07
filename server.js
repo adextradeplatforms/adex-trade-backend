@@ -28,7 +28,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "https://adex-trade-frontend.onrender.com"
+      "https://adextradeplatform.netlify.app/"
     ],
     credentials: true,
   })
