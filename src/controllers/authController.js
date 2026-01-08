@@ -3,10 +3,30 @@
 import bcrypt from 'bcryptjs';
 import pool from '../config/database.js';
 import jwt from 'jsonwebtoken';
-import { sendSuccess, sendError, sendValidationError } from '../utils/responseHelper.js';
-import { generateAccessToken, generateRefreshToken, generateVerificationToken } from '../utils/generateToken.js';
-import { validateEmail, validatePassword, generateReferralCode } from '../utils/validators.js';
-import { sendVerificationEmail, sendWelcomeEmail } from '../services/emailService.js';
+
+import {
+  sendSuccess,
+  sendError,
+  sendValidationError
+} from '../utils/responseHelper.js';
+
+import {
+  generateAccessToken,
+  generateRefreshToken,
+  generateVerificationToken
+} from '../utils/generateToken.js';
+
+import {
+  validateEmail,
+  validatePassword,
+  generateReferralCode
+} from '../utils/validators.js';
+
+import {
+  sendVerificationEmail,
+  sendWelcomeEmail
+} from '../services/emailService.js';
+
 import { verifyTwoFactor } from './twoFactorController.js';
 
 /* ============================
@@ -33,8 +53,12 @@ export const register = async (req, res) => {
       return sendValidationError(res, 'Password must be at least 6 characters');
     }
 
-    // Check if email already exists
-    const existingUser = await client.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
+    // Check existing user
+    const existingUser = await client.query(
+      'SELECT id FROM users WHERE email = $1',
+      [email.toLowerCase()]
+    );
+
     if (existingUser.rows.length > 0) {
       return sendError(res, 'Email already registered', 400);
     }
@@ -42,23 +66,30 @@ export const register = async (req, res) => {
     // Hash password
     const passwordHash = await bcrypt.hash(password, 12);
 
-    // Generate unique referral code
+    // Generate referral code
     let userReferralCode;
     let isUnique = false;
+
     while (!isUnique) {
       userReferralCode = generateReferralCode();
-      const codeCheck = await client.query('SELECT id FROM users WHERE referral_code = $1', [userReferralCode]);
+      const codeCheck = await client.query(
+        'SELECT id FROM users WHERE referral_code = $1',
+        [userReferralCode]
+      );
       if (codeCheck.rows.length === 0) isUnique = true;
     }
 
-    // Verification token for email
+    // Email verification token
     const verificationToken = generateVerificationToken();
-    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    // Check for referrer
+    // Referral handling
     let referrerId = null;
     if (referralCode) {
-      const referrerResult = await client.query('SELECT id FROM users WHERE referral_code = $1', [referralCode]);
+      const referrerResult = await client.query(
+        'SELECT id FROM users WHERE referral_code = $1',
+        [referralCode]
+      );
       if (referrerResult.rows.length > 0) {
         referrerId = referrerResult.rows[0].id;
       }
@@ -67,38 +98,56 @@ export const register = async (req, res) => {
     // Insert user
     const userResult = await client.query(
       `INSERT INTO users
-       (email, password_hash, full_name, phone, referral_code, referred_by, verification_token, verification_expires, preferred_language)
+       (email, password_hash, full_name, phone, referral_code, referred_by,
+        verification_token, verification_expires, preferred_language)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
        RETURNING id, email, full_name, referral_code, preferred_language`,
-      [email.toLowerCase(), passwordHash, fullName, phone, userReferralCode, referrerId, verificationToken, verificationExpires, language || 'en']
+      [
+        email.toLowerCase(),
+        passwordHash,
+        fullName,
+        phone || null,
+        userReferralCode,
+        referrerId,
+        verificationToken,
+        verificationExpires,
+        language || 'en'
+      ]
     );
 
     const user = userResult.rows[0];
 
     // Create wallet
-    await client.query('INSERT INTO wallets (user_id) VALUES ($1)', [user.id]);
+    await client.query(
+      'INSERT INTO wallets (user_id) VALUES ($1)',
+      [user.id]
+    );
 
-    // Build referral tree if referrer exists
+    // Referral tree
     if (referrerId) {
       await buildReferralTree(client, user.id, referrerId);
     }
 
     await client.query('COMMIT');
 
-    // Send verification email
+    // Send verification email (non-blocking)
     try {
       await sendVerificationEmail(email, verificationToken, language || 'en');
-    } catch (e) {
-      console.error('Verification email error:', e);
+    } catch (err) {
+      console.error('Verification email error:', err.message);
     }
 
-    return sendSuccess(res, 'Registration successful. Please verify your email.', {
-      userId: user.id,
-      email: user.email,
-      fullName: user.full_name,
-      referralCode: user.referral_code,
-      language: user.preferred_language
-    });
+    return sendSuccess(
+      res,
+      'Registration successful. Please verify your email.',
+      {
+        userId: user.id,
+        email: user.email,
+        fullName: user.full_name,
+        referralCode: user.referral_code,
+        language: user.preferred_language
+      }
+    );
 
   } catch (error) {
     await client.query('ROLLBACK');
@@ -113,13 +162,11 @@ export const register = async (req, res) => {
    REFERRAL TREE
 ============================ */
 const buildReferralTree = async (client, newUserId, directReferrerId) => {
-  // Direct referral
   await client.query(
     'INSERT INTO referral_tree (user_id, referred_user_id, level) VALUES ($1,$2,1)',
     [directReferrerId, newUserId]
   );
 
-  // Add uplines (max 5 levels)
   const uplines = await client.query(
     `SELECT user_id, level FROM referral_tree
      WHERE referred_user_id = $1 AND level < 5`,
@@ -138,7 +185,7 @@ const buildReferralTree = async (client, newUserId, directReferrerId) => {
 };
 
 /* ============================
-   LOGIN (WITH 2FA)
+   LOGIN
 ============================ */
 export const login = async (req, res) => {
   try {
@@ -148,7 +195,11 @@ export const login = async (req, res) => {
       return sendValidationError(res, 'Email and password are required');
     }
 
-    const userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email.toLowerCase()]);
+    const userResult = await pool.query(
+      'SELECT * FROM users WHERE email = $1',
+      [email.toLowerCase()]
+    );
+
     if (userResult.rows.length === 0) {
       return sendError(res, 'Invalid email or password', 401);
     }
@@ -159,26 +210,37 @@ export const login = async (req, res) => {
       return sendError(res, 'Account deactivated', 403);
     }
 
+    // 🚨 CRITICAL FIX
+    if (!user.email_verified) {
+      return sendError(res, 'Please verify your email before logging in', 403);
+    }
+
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
     if (!isValidPassword) {
       return sendError(res, 'Invalid email or password', 401);
     }
 
-    // Two-Factor Authentication
+    // 2FA
     if (user.two_factor_enabled) {
       if (!twoFactorToken) {
-        return res.status(400).json({ success: false, message: 'Two-factor token required', twoFactorRequired: true });
+        return res.status(400).json({
+          success: false,
+          message: 'Two-factor token required',
+          twoFactorRequired: true
+        });
       }
+
       const twoFactorVerification = await verifyTwoFactor(user.id, twoFactorToken);
       if (!twoFactorVerification.valid) {
         return sendError(res, 'Invalid two-factor token', 401);
       }
     }
 
-    // Update last login
-    await pool.query('UPDATE users SET last_login = NOW() WHERE id = $1', [user.id]);
+    await pool.query(
+      'UPDATE users SET last_login = NOW() WHERE id = $1',
+      [user.id]
+    );
 
-    // Generate tokens
     const accessToken = generateAccessToken(user.id);
     const refreshToken = generateRefreshToken(user.id);
 
@@ -210,19 +272,34 @@ export const verifyEmail = async (req, res) => {
     const { token } = req.query;
     if (!token) return sendError(res, 'Verification token required', 400);
 
-    const result = await pool.query('SELECT id, email, full_name, verification_expires, email_verified FROM users WHERE verification_token = $1', [token]);
-    if (result.rows.length === 0) return sendError(res, 'Invalid token', 400);
+    const result = await pool.query(
+      'SELECT id, email, full_name, verification_expires, email_verified FROM users WHERE verification_token = $1',
+      [token]
+    );
+
+    if (result.rows.length === 0) {
+      return sendError(res, 'Invalid token', 400);
+    }
 
     const user = result.rows[0];
-    if (user.email_verified) return sendError(res, 'Email already verified', 400);
-    if (new Date() > new Date(user.verification_expires)) return sendError(res, 'Token expired', 400);
 
-    await pool.query('UPDATE users SET email_verified = TRUE, verification_token = NULL, verification_expires = NULL WHERE id = $1', [user.id]);
+    if (user.email_verified) {
+      return sendError(res, 'Email already verified', 400);
+    }
+
+    if (new Date() > new Date(user.verification_expires)) {
+      return sendError(res, 'Token expired', 400);
+    }
+
+    await pool.query(
+      'UPDATE users SET email_verified = TRUE, verification_token = NULL, verification_expires = NULL WHERE id = $1',
+      [user.id]
+    );
 
     try {
       await sendWelcomeEmail(user.email, user.full_name);
-    } catch (e) {
-      console.error('Welcome email error:', e);
+    } catch (err) {
+      console.error('Welcome email error:', err.message);
     }
 
     return sendSuccess(res, 'Email verified successfully');
@@ -241,23 +318,36 @@ export const resendVerification = async (req, res) => {
     const { email } = req.body;
     if (!email) return sendValidationError(res, 'Email required');
 
-    const result = await pool.query('SELECT id, email, full_name, email_verified, verification_token, verification_expires FROM users WHERE email = $1', [email.toLowerCase()]);
-    if (result.rows.length === 0) return sendError(res, 'User not found', 404);
+    const result = await pool.query(
+      'SELECT id, email, full_name, email_verified, verification_token, verification_expires FROM users WHERE email = $1',
+      [email.toLowerCase()]
+    );
+
+    if (result.rows.length === 0) {
+      return sendError(res, 'User not found', 404);
+    }
 
     const user = result.rows[0];
-    if (user.email_verified) return sendError(res, 'Email already verified', 400);
+
+    if (user.email_verified) {
+      return sendError(res, 'Email already verified', 400);
+    }
 
     let token = user.verification_token;
     if (!token || new Date() > new Date(user.verification_expires)) {
       token = generateVerificationToken();
       const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-      await pool.query('UPDATE users SET verification_token = $1, verification_expires = $2 WHERE id = $3', [token, expires, user.id]);
+
+      await pool.query(
+        'UPDATE users SET verification_token = $1, verification_expires = $2 WHERE id = $3',
+        [token, expires, user.id]
+      );
     }
 
     try {
       await sendVerificationEmail(user.email, token);
-    } catch (e) {
-      console.error('Resend verification email error:', e);
+    } catch (err) {
+      console.error('Resend verification error:', err.message);
     }
 
     return sendSuccess(res, 'Verification email sent');
@@ -304,7 +394,9 @@ export const getProfile = async (req, res) => {
       [req.user.id]
     );
 
-    if (result.rows.length === 0) return sendError(res, 'User not found', 404);
+    if (result.rows.length === 0) {
+      return sendError(res, 'User not found', 404);
+    }
 
     return sendSuccess(res, result.rows[0]);
 
