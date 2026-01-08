@@ -1,27 +1,22 @@
-// src/config/email.js
-
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
-
 dotenv.config();
 
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
   port: Number(process.env.EMAIL_PORT),
-  secure: Number(process.env.EMAIL_PORT) === 465, // auto-fix
+  secure: Number(process.env.EMAIL_PORT) === 465, // true for 465, false for other ports
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD,
+    pass: process.env.EMAIL_PASS, // ✅ fixed
   },
 });
 
-// Verify connection (safe in dev)
+// Verify transporter
 if (process.env.NODE_ENV !== 'production') {
   transporter.verify()
     .then(() => console.log('✅ Email service is ready'))
-    .catch((error) =>
-      console.error('❌ Email configuration error:', error.message)
-    );
+    .catch(err => console.error('❌ Email configuration error:', err.message));
 }
 
 export default transporter;
