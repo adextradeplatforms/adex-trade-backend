@@ -6,7 +6,6 @@ import rateLimit from 'express-rate-limit';
 import 'dotenv/config';
 
 // Middleware
-import logger from './config/logger.js';
 import requestLogger from './middleware/requestLogger.js';
 import errorHandler from './middleware/errorHandler.js';
 import { authenticateToken } from './middleware/authMiddleware.js';
@@ -31,39 +30,34 @@ const app = express();
 // 🔥 INIT I18N
 await initI18n();
 
-// ===================== SECURITY =====================
+// 🔐 SECURITY
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || 'https://adextradeplatform.netlify.app', // no slash
+    origin: process.env.FRONTEND_URL, // NO TRAILING SLASH
     credentials: true,
   })
 );
+
 app.use(requestLogger);
 
-// ===================== RATE LIMIT =====================
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-});
-app.use('/api/', limiter);
+// 🚦 RATE LIMIT
+app.use(
+  '/api/',
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+  })
+);
 
-// ===================== BODY =====================
+// 📦 BODY
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ===================== I18N =====================
+// 🌍 I18N
 app.use(i18nextMiddleware.handle(i18next));
 
-// ===================== ROOT =====================
-app.get('/', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Welcome to ADEX Trade API',
-  });
-});
-
-// ===================== HEALTH =====================
+// ❤️ HEALTH
 app.get('/health', (req, res) => {
   res.json({
     success: true,
@@ -72,27 +66,24 @@ app.get('/health', (req, res) => {
   });
 });
 
-// ===================== PUBLIC ROUTES =====================
+// 🌐 PUBLIC ROUTES
 app.use('/api/auth', authRoutes);
 app.use('/api/password', passwordRoutes);
 app.use('/api/2fa', twoFactorRoutes);
 
-// ===================== PROTECTED ROUTES =====================
+// 🔒 PROTECTED ROUTES
 app.use('/api/wallet', authenticateToken, setUserLanguage, walletRoutes);
 app.use('/api/investments', authenticateToken, setUserLanguage, investmentRoutes);
 app.use('/api/referrals', authenticateToken, setUserLanguage, referralRoutes);
 app.use('/api/admin', authenticateToken, setUserLanguage, adminRoutes);
 app.use('/api/backups', authenticateToken, setUserLanguage, backupRoutes);
 
-// ===================== 404 =====================
+// ❌ 404
 app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: 'Route not found',
-  });
+  res.status(404).json({ success: false, message: 'Route not found' });
 });
 
-// ===================== ERROR =====================
+// ❌ ERROR
 app.use(errorHandler);
 
 export default app;
