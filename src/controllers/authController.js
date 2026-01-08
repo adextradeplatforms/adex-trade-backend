@@ -58,7 +58,6 @@ export const register = async (req, res) => {
       'SELECT id FROM users WHERE email = $1',
       [email.toLowerCase()]
     );
-
     if (existingUser.rows.length > 0) {
       return sendError(res, 'Email already registered', 400);
     }
@@ -66,10 +65,9 @@ export const register = async (req, res) => {
     // Hash password
     const passwordHash = await bcrypt.hash(password, 12);
 
-    // Generate referral code
+    // Generate unique referral code
     let userReferralCode;
     let isUnique = false;
-
     while (!isUnique) {
       userReferralCode = generateReferralCode();
       const codeCheck = await client.query(
@@ -79,7 +77,7 @@ export const register = async (req, res) => {
       if (codeCheck.rows.length === 0) isUnique = true;
     }
 
-    // Email verification token
+    // Generate email verification token
     const verificationToken = generateVerificationToken();
     const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
@@ -114,40 +112,32 @@ export const register = async (req, res) => {
         language || 'en'
       ]
     );
-
     const user = userResult.rows[0];
 
     // Create wallet
-    await client.query(
-      'INSERT INTO wallets (user_id) VALUES ($1)',
-      [user.id]
-    );
+    await client.query('INSERT INTO wallets (user_id) VALUES ($1)', [user.id]);
 
-    // Referral tree
+    // Build referral tree
     if (referrerId) {
       await buildReferralTree(client, user.id, referrerId);
     }
 
     await client.query('COMMIT');
 
-    // Send verification email (non-blocking)
+    // Send verification email
     try {
       await sendVerificationEmail(email, verificationToken, language || 'en');
     } catch (err) {
       console.error('Verification email error:', err.message);
     }
 
-    return sendSuccess(
-      res,
-      'Registration successful. Please verify your email.',
-      {
-        userId: user.id,
-        email: user.email,
-        fullName: user.full_name,
-        referralCode: user.referral_code,
-        language: user.preferred_language
-      }
-    );
+    return sendSuccess(res, 'Registration successful. Please verify your email.', {
+      userId: user.id,
+      email: user.email,
+      fullName: user.full_name,
+      referralCode: user.referral_code,
+      language: user.preferred_language
+    });
 
   } catch (error) {
     await client.query('ROLLBACK');
@@ -190,7 +180,6 @@ const buildReferralTree = async (client, newUserId, directReferrerId) => {
 export const login = async (req, res) => {
   try {
     const { email, password, twoFactorToken } = req.body;
-
     if (!email || !password) {
       return sendValidationError(res, 'Email and password are required');
     }
@@ -199,18 +188,14 @@ export const login = async (req, res) => {
       'SELECT * FROM users WHERE email = $1',
       [email.toLowerCase()]
     );
-
     if (userResult.rows.length === 0) {
       return sendError(res, 'Invalid email or password', 401);
     }
 
     const user = userResult.rows[0];
-
     if (!user.is_active) {
       return sendError(res, 'Account deactivated', 403);
     }
-
-    // 🚨 CRITICAL FIX
     if (!user.email_verified) {
       return sendError(res, 'Please verify your email before logging in', 403);
     }
@@ -236,10 +221,7 @@ export const login = async (req, res) => {
       }
     }
 
-    await pool.query(
-      'UPDATE users SET last_login = NOW() WHERE id = $1',
-      [user.id]
-    );
+    await pool.query('UPDATE users SET last_login = NOW() WHERE id = $1', [user.id]);
 
     const accessToken = generateAccessToken(user.id);
     const refreshToken = generateRefreshToken(user.id);
@@ -257,7 +239,6 @@ export const login = async (req, res) => {
       accessToken,
       refreshToken
     });
-
   } catch (error) {
     console.error('Login error:', error);
     return sendError(res, 'Server error');
@@ -276,13 +257,11 @@ export const verifyEmail = async (req, res) => {
       'SELECT id, email, full_name, verification_expires, email_verified FROM users WHERE verification_token = $1',
       [token]
     );
-
     if (result.rows.length === 0) {
       return sendError(res, 'Invalid token', 400);
     }
 
     const user = result.rows[0];
-
     if (user.email_verified) {
       return sendError(res, 'Email already verified', 400);
     }
@@ -319,16 +298,14 @@ export const resendVerification = async (req, res) => {
     if (!email) return sendValidationError(res, 'Email required');
 
     const result = await pool.query(
-      'SELECT id, email, full_name, email_verified, verification_token, verification_expires FROM users WHERE email = $1',
+      'SELECT id, email, full_name, email_verified, verification_token, verification_expires, preferred_language FROM users WHERE email = $1',
       [email.toLowerCase()]
     );
-
     if (result.rows.length === 0) {
       return sendError(res, 'User not found', 404);
     }
 
     const user = result.rows[0];
-
     if (user.email_verified) {
       return sendError(res, 'Email already verified', 400);
     }
@@ -345,7 +322,7 @@ export const resendVerification = async (req, res) => {
     }
 
     try {
-      await sendVerificationEmail(user.email, token);
+      await sendVerificationEmail(user.email, token, user.preferred_language || 'en');
     } catch (err) {
       console.error('Resend verification error:', err.message);
     }
@@ -368,11 +345,9 @@ export const refreshToken = async (req, res) => {
 
     jwt.verify(token, process.env.JWT_REFRESH_SECRET, (err, decoded) => {
       if (err) return sendError(res, 'Invalid refresh token', 403);
-
       const newAccessToken = generateAccessToken(decoded.userId);
       return sendSuccess(res, 'Token refreshed', { accessToken: newAccessToken });
     });
-
   } catch (error) {
     console.error('Refresh token error:', error);
     return sendError(res, 'Token refresh failed');
@@ -393,7 +368,6 @@ export const getProfile = async (req, res) => {
        WHERE u.id = $1`,
       [req.user.id]
     );
-
     if (result.rows.length === 0) {
       return sendError(res, 'User not found', 404);
     }
