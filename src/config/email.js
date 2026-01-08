@@ -4,19 +4,19 @@ dotenv.config();
 
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
-  port: Number(process.env.EMAIL_PORT),
-  secure: Number(process.env.EMAIL_PORT) === 465, // true for 465, false for other ports
+  port: Number(process.env.EMAIL_PORT), // 587
+  secure: false, // use STARTTLS
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS, // ✅ fixed
+    pass: process.env.EMAIL_PASS, // App password
+  },
+  tls: {
+    rejectUnauthorized: false,
   },
 });
 
-// Verify transporter
-if (process.env.NODE_ENV !== 'production') {
-  transporter.verify()
-    .then(() => console.log('✅ Email service is ready'))
-    .catch(err => console.error('❌ Email configuration error:', err.message));
-}
+transporter.verify()
+  .then(() => console.log('✅ Email service is ready'))
+  .catch(err => console.error('❌ Email configuration error:', err.message));
 
 export default transporter;

@@ -1,29 +1,31 @@
-import nodemailer from "nodemailer";
-import 'dotenv/config'; // loads your .env variables
+import nodemailer from 'nodemailer';
+import dotenv from 'dotenv';
+dotenv.config();
 
-const sendTestEmail = async () => {
+const transporter = nodemailer.createTransport({
+  host: process.env.EMAIL_HOST,
+  port: Number(process.env.EMAIL_PORT),
+  secure: Number(process.env.EMAIL_PORT) === 465, // true for 465, false for 587
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS, // Must be Gmail App Password
+  },
+});
+
+// Test sending email
+async function sendTestEmail() {
   try {
-    const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST || "smtp.gmail.com",
-      port: process.env.EMAIL_PORT || 587,
-      secure: false, // true for 465, false for 587
-      auth: {
-        user: process.env.EMAIL_USER, // your Gmail
-        pass: process.env.EMAIL_PASS, // your App Password (with spaces)
-      },
-    });
-
     const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM || `"Adex Trade" <${process.env.EMAIL_USER}>`,
-      to: "wizjayweb@gmail.com", // your test recipient
-      subject: "Test Email from Backend",
-      text: "This is a test email to confirm Gmail verification works.",
+      from: `"ADEX Trade Test" <${process.env.EMAIL_FROM}>`,
+      to: 'wizjayweb@gmail.com', // change this to your email
+      subject: '✅ Test Email from ADEX Trade',
+      text: 'This is a test email. If you see this, your SMTP setup works!',
+      html: '<h3>This is a test email ✅</h3><p>If you see this, your SMTP setup works!</p>',
     });
-
-    console.log("✅ Message sent:", info.messageId);
+    console.log('✅ Test email sent:', info.response);
   } catch (err) {
-    console.error("❌ Email failed:", err);
+    console.error('❌ Test email failed:', err.message);
   }
-};
+}
 
 sendTestEmail();
