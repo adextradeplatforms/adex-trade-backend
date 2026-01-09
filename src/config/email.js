@@ -1,29 +1,26 @@
-// src/config/email.js
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST, // smtp.gmail.com
-  port: Number(process.env.EMAIL_PORT), // 587
-  secure: false, // STARTTLS
+  host: process.env.EMAIL_HOST,
+  port: Number(process.env.EMAIL_PORT),
+  secure: false, // STARTTLS (required for port 587)
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS, // Gmail App Password
-  },
-  tls: {
-    rejectUnauthorized: false,
+    pass: process.env.EMAIL_PASS,
   },
 });
 
-// Verify once
-if (process.env.NODE_ENV !== 'production') {
-  transporter.verify()
-    .then(() => console.log('✅ Email service is ready'))
-    .catch(err =>
-      console.error('❌ Email configuration error:', err.message)
-    );
-}
+/**
+ * Verify SMTP connection at startup
+ * Gmail may still accept mail even if this fails,
+ * but this helps debugging.
+ */
+transporter
+  .verify()
+  .then(() => console.log('✅ SMTP connection verified'))
+  .catch(err => console.error('❌ SMTP verification failed:', err.message));
 
 export default transporter;

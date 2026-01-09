@@ -3,6 +3,12 @@ import transporter from '../config/email.js';
 import i18next from '../config/i18n.js';
 
 /**
+ * Helper: consistent sender
+ * Gmail SMTP REQUIRES sender = authenticated account
+ */
+const FROM_ADDRESS = `"ADEX Trade" <${process.env.EMAIL_USER}>`;
+
+/**
  * Send verification email
  */
 export const sendVerificationEmail = async (
@@ -13,8 +19,8 @@ export const sendVerificationEmail = async (
   const t = i18next.getFixedT(language);
   const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}`;
 
-  const mailOptions = {
-    from: process.env.EMAIL_USER, // MUST be Gmail sender
+  await transporter.sendMail({
+    from: FROM_ADDRESS,
     to: email,
     subject: t('email.verificationSubject') || 'Verify Your Email',
     html: `
@@ -28,9 +34,8 @@ export const sendVerificationEmail = async (
         <p style="font-size:12px;">Link expires in 24 hours</p>
       </div>
     `,
-  };
+  });
 
-  await transporter.sendMail(mailOptions);
   console.log(`✅ Verification email sent to ${email}`);
 };
 
@@ -45,7 +50,7 @@ export const sendWelcomeEmail = async (
   const t = i18next.getFixedT(language);
 
   await transporter.sendMail({
-    from: process.env.EMAIL_USER,
+    from: FROM_ADDRESS,
     to: email,
     subject: t('email.welcomeSubject') || 'Welcome to ADEX Trade',
     html: `
@@ -69,14 +74,13 @@ export const sendWithdrawalNotification = async (
   status,
   language = 'en'
 ) => {
-  const t = i18next.getFixedT(language);
   const subject =
     status === 'approved'
       ? 'Withdrawal Approved'
       : 'Withdrawal Rejected';
 
   await transporter.sendMail({
-    from: process.env.EMAIL_USER,
+    from: FROM_ADDRESS,
     to: email,
     subject,
     html: `
@@ -87,7 +91,7 @@ export const sendWithdrawalNotification = async (
     `,
   });
 
-  console.log(`✅ Withdrawal email sent to ${email}`);
+  console.log(`✅ Withdrawal status email sent to ${email}`);
 };
 
 /**
@@ -99,7 +103,7 @@ export const sendWithdrawalCompletedEmail = async (
   txHash
 ) => {
   await transporter.sendMail({
-    from: process.env.EMAIL_USER,
+    from: FROM_ADDRESS,
     to: userEmail,
     subject: '✅ Withdrawal Completed - ADEX Trade',
     html: `
@@ -129,7 +133,7 @@ export const sendWithdrawalRejectedEmail = async (
   reason
 ) => {
   await transporter.sendMail({
-    from: process.env.EMAIL_USER,
+    from: FROM_ADDRESS,
     to: userEmail,
     subject: '❌ Withdrawal Rejected - ADEX Trade',
     html: `
