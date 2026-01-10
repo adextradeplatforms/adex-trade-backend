@@ -18,9 +18,12 @@ const transporter = nodemailer.createTransport({
  * Gmail may still accept mail even if this fails,
  * but this helps debugging.
  */
-transporter
-  .verify()
-  .then(() => console.log('✅ SMTP connection verified'))
-  .catch(err => console.error('❌ SMTP verification failed:', err.message));
+transporter.verify()
+  .then(() => {
+    console.log('📧 SMTP ready');
+  })
+  .catch(err => {
+    console.warn('⚠️ SMTP not ready:', err.message);
+  });
 
 export default transporter;
