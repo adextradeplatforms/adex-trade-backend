@@ -195,10 +195,10 @@ export const login = async (req, res) => {
     const user = userResult.rows[0];
     if (!user.is_active) {
       return sendError(res, 'Account deactivated', 403);
-    }
-    if (!user.email_verified) {
-      return sendError(res, 'Please verify your email before logging in', 403);
-    }
+   // }
+   // if (!user.email_verified) {
+     // return sendError(res, 'Please verify your email before logging in', 403);
+   // }
 
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
     if (!isValidPassword) {
